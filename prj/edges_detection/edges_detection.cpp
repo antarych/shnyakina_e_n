@@ -28,6 +28,7 @@ int main(int argc, char* argv[])
 	for (int i = 0; i < n; i++) {
 		Mat image, hsv, gray, dst;
 		const char* filename = fileNames[i].c_str();
+		//filename = "1.jpg";
 		image = imread(filename);
 
 		int y_size = 200;
@@ -40,9 +41,10 @@ int main(int argc, char* argv[])
 			x_size = (int)(image.cols * ((double)y_size / image.rows));
 		}
 		resize(image, image, Size(x_size, y_size));
-		blur(image, image, Size(3, 3));
-		cvtColor(image, hsv, CV_BGR2HSV);
-		inRange(hsv, Scalar(0, 40, 80), Scalar(17, 170, 255), hsv);
+		Mat image_blured;
+		medianBlur(image, image_blured, 5);
+		cvtColor(image_blured, hsv, CV_BGR2HSV);
+		inRange(hsv, Scalar(0, 30, 80), Scalar(17, 170, 255), hsv);
 		Mat canny_output;
 		vector<vector<Point> > contours;
 		vector<Vec4i> hierarchy;
@@ -53,21 +55,56 @@ int main(int argc, char* argv[])
 
 		dilate(drawing, drawing, getStructuringElement(MORPH_ELLIPSE, Size(4, 4)));
 
-		cvtColor(image, gray, CV_RGB2GRAY);
+		cvtColor(image_blured, gray, CV_RGB2GRAY);
 
-		Canny(gray, dst, 50, 130, 3);
-		Mat filtered_edges;
+		Mat _img;
+		double otsu_thresh_val = threshold(gray, _img, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+		double sigma = 0.33;
+		Canny(gray, dst, int(max(0, (int)(otsu_thresh_val*(1 - sigma)))), int(min(255, (int)(otsu_thresh_val*(1 + sigma)))), 3);
+		Mat filtered_edges = Mat::zeros(image.size(), CV_8UC1);
 		dst.copyTo(filtered_edges, drawing);
 
-		Mat show_result(image.rows, image.cols * 3, CV_8UC1, Scalar(0, 0, 0));
+		Mat gr;
+		cvtColor(image, gr, CV_RGB2GRAY);
+		Mat show_result(image.rows, image.cols * 4, CV_8UC1, Scalar(0, 0, 0));
 		Rect roi(Rect(0, 0, image.cols, image.rows));
-		gray.copyTo(show_result(roi));
+		gr.copyTo(show_result(roi));
 		roi = Rect(image.cols, 0, image.cols, image.rows);
-		drawing.copyTo(show_result(roi));
+		gray.copyTo(show_result(roi));
 		roi = Rect(image.cols*2, 0, image.cols, image.rows);
+		drawing.copyTo(show_result(roi));
+		roi = Rect(image.cols * 3, 0, image.cols, image.rows);
 		filtered_edges.copyTo(show_result(roi));
 
 		imshow(fileNames[i], show_result);
+
+		//Mat diff = Mat::zeros(filtered_edges.size(), CV_8UC1);
+		//const char* filename_template = fileNames[i].c_str();
+		//filename_template = "1_template.jpg";
+		//Mat image_template = imread(filename_template);
+		//int y_size_template = 200;
+		//int x_size_template;
+		//if (image_template.rows >= y_size) {
+		//	x_size_template = (int)(image_template.cols / ((double)image_template.rows / y_size));
+		//}
+		//else
+		//{
+		//	x_size_template = (int)(image_template.cols * ((double)y_size / image_template.rows));
+		//}
+		//resize(image_template, image_template, Size(x_size_template, y_size_template));
+		//imshow("a", image_template);
+		//imshow("b", filtered_edges);
+		//blur(filtered_edges, filtered_edges, Size(5, 5), Point(-1, -1), 4);
+		//blur(image_template, image_template, Size(5, 5), Point(-1, -1), 4);
+		//absdiff(image_template, filtered_edges, diff);
+		//diff = image_template - filtered_edges_diff;
+		//for (int j = 0; j < diff.cols; j++) {
+		//	for (int i = 0; i < diff.rows; i++) {
+		//		diff.at<uint8_t>(i, j) = abs(filtered_edges.at<uint8_t>(i, j) - image_template.at<uint8_t>(i, j));
+		//	}
+		//}
+		//imshow("c", diff);
+
 	}
 
 	cvWaitKey(10000000);
